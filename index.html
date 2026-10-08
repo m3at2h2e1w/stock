@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockFlow - Daily Stock Inventory Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#312e81'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background: white !important; color: black !important; }
+      .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl { box-shadow: none !important; }
+    }
+    .print-only { display: none; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans antialiased">
+
+  <!-- Header / Navigation -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center text-white shadow-sm shadow-brand-500/20">
+          <i data-lucide="boxes" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold tracking-tight text-slate-900">StockFlow</h1>
+            <span class="px-2 py-0.5 text-xs font-semibold bg-brand-50 text-brand-700 rounded-full border border-brand-200">Daily Register</span>
+          </div>
+          <p class="text-xs text-slate-500 hidden sm:block">Real-time daily stock entries, calculations & audit</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button id="btnOpenItemModal" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+          <i data-lucide="package-search" class="w-4 h-4"></i>
+          <span>Item Catalog</span>
+        </button>
+        <button id="btnPrintReport" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors">
+          <i data-lucide="printer" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Print Sheet</span>
+        </button>
+        <button id="btnOpenExportModal" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          <span>Export (Full Items)</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    
+    <!-- Printable Header (Only appears when printed) -->
+    <div class="print-only mb-6">
+      <div class="flex justify-between items-center border-b pb-4">
+        <div>
+          <h1 class="text-2xl font-bold">Daily Stock Register Report</h1>
+          <p class="text-sm text-slate-600" id="printReportSubtitle">Generated Record</p>
+        </div>
+        <div class="text-right text-xs text-slate-500">
+          <p id="printGeneratedTime"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI Summary Cards -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 no-print">
+      <!-- Total Items -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div>
+          <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Catalog Items</p>
+          <h3 id="statTotalItems" class="text-2xl font-bold text-slate-900 mt-1">0</h3>
+          <span class="text-xs text-slate-400 mt-0.5 inline-block">Managed SKU profiles</span>
+        </div>
+        <div class="p-3 bg-blue-50 text-blue-600 rounded-lg">
+          <i data-lucide="box" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <!-- Today's Total Arrivals -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div>
+          <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Received</p>
+          <h3 id="statTotalReceived" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
+          <span id="statReceivedSub" class="text-xs text-slate-400 mt-0.5 inline-block">Across selected date</span>
+        </div>
+        <div class="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
+          <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <!-- Today's Total Issued -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div>
+          <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Issued</p>
+          <h3 id="statTotalIssued" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
+          <span id="statIssuedSub" class="text-xs text-slate-400 mt-0.5 inline-block">Dispatches / outward</span>
+        </div>
+        <div class="p-3 bg-amber-50 text-amber-600 rounded-lg">
+          <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <!-- Low Stock Alerts -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div>
+          <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Stock Alerts</p>
+          <h3 id="statLowStockCount" class="text-2xl font-bold text-rose-600 mt-1">0</h3>
+          <span class="text-xs text-slate-400 mt-0.5 inline-block">Below minimum thresholds</span>
+        </div>
+        <div class="p-3 bg-rose-50 text-rose-600 rounded-lg">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+        </div>
+      </div>
+    </section>
+
+    <!-- Daily Stock Entry Form Section -->
+    <section class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden no-print">
+      <div class="p-4 sm:p-5 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-white/10 rounded-lg text-indigo-300">
+            <i data-lucide="clipboard-pen" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 id="formTitle" class="text-base sm:text-lg font-semibold tracking-tight">Record Daily Stock Transaction</h2>
+            <p class="text-xs text-indigo-200">Manually update Opening Stock, Arrivals, Issues, and physical Closing Stock</p>
+          </div>
+        </div>
+        <button id="btnResetForm" type="button" class="text-xs font-medium text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span>Clear</span>
+        </button>
+      </div>
+
+      <form id="stockEntryForm" class="p-4 sm:p-6 space-y-4">
+        <input type="hidden" id="editEntryId" value="">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Date Picker -->
+          <div>
+            <label for="entryDate" class="block text-xs font-semibold text-slate-600 mb-1">Date *</label>
+            <div class="relative">
+              <input type="date" id="entryDate" required
+                class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">Select transaction date</p>
+          </div>
+
+          <!-- Item Selection -->
+          <div class="sm:col-span-2">
+            <div class="flex items-center justify-between mb-1">
+              <label for="itemSelect" class="block text-xs font-semibold text-slate-600">Select or Add Item *</label>
+              <button type="button" id="btnQuickAddItem" class="text-[11px] font-semibold text-brand-600 hover:text-brand-800 transition">
+                + Quick Create Item
+              </button>
+            </div>
+            <select id="itemSelect" required
+              class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
+              <option value="" disabled selected>-- Choose an Item --</option>
+            </select>
+            <div class="flex items-center gap-2 mt-1">
+              <p id="itemUnitBadge" class="text-[11px] text-slate-500">Unit: <span class="font-medium text-slate-700">-</span></p>
+              <span class="text-slate-300">|</span>
+              <p id="itemMinStockBadge" class="text-[11px] text-slate-500">Min Alert: <span class="font-medium text-slate-700">-</span></p>
+            </div>
+          </div>
+
+          <!-- Unit Display / Category -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Category / Unit</label>
+            <div class="flex gap-2">
+              <input type="text" id="displayCategory" placeholder="Category" readonly
+                class="w-1/2 px-3 py-2 text-sm border border-slate-200 bg-slate-100 text-slate-600 rounded-lg">
+              <input type="text" id="displayUnit" placeholder="Unit" readonly
+                class="w-1/2 px-3 py-2 text-sm border border-slate-200 bg-slate-100 text-slate-600 font-semibold rounded-lg">
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">Configured in Catalog</p>
+          </div>
+        </div>
+
+        <!-- Stock Numerical Fields -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+          <!-- Opening Stock -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label for="openingStock" class="block text-xs font-semibold text-slate-700">Opening Stock *</label>
+              <button type="button" id="btnAutoFetchOpening" class="text-[10px] text-brand-600 hover:text-brand-800 font-medium underline flex items-center gap-0.5" title="Fetch closing balance from previous entry of this item">
+                <i data-lucide="history" class="w-3 h-3"></i> Auto-Fill Prev
+              </button>
+            </div>
+            <input type="number" step="any" min="0" id="openingStock" required placeholder="0.00"
+              class="w-full px-3 py-2 text-sm font-medium border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+            <span class="text-[11px] text-slate-400">Available at start of day</span>
+          </div>
+
+          <!-- Arrival / Inward -->
+          <div>
+            <label for="arrivalStock" class="block text-xs font-semibold text-emerald-700 mb-1 flex items-center gap-1">
+              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Arrival / Received (+)
+            </label>
+            <input type="number" step="any" min="0" id="arrivalStock" value="0" placeholder="0.00"
+              class="w-full px-3 py-2 text-sm font-medium border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+            <span class="text-[11px] text-slate-400">Goods Inward / Purchases</span>
+          </div>
+
+          <!-- Issued / Outward -->
+          <div>
+            <label for="issuedStock" class="block text-xs font-semibold text-amber-700 mb-1 flex items-center gap-1">
+              <i data-lucide="minus-circle" class="w-3.5 h-3.5"></i> Issued / Dispatched (-)
+            </label>
+            <input type="number" step="any" min="0" id="issuedStock" value="0" placeholder="0.00"
+              class="w-full px-3 py-2 text-sm font-medium border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+            <span class="text-[11px] text-slate-400">Dispatched / Consumed</span>
+          </div>
+
+          <!-- Closing Stock (Manual Entry) -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label for="closingStock" class="block text-xs font-semibold text-indigo-900 flex items-center gap-1">
+                <i data-lucide="package-check" class="w-3.5 h-3.5 text-indigo-600"></i> Closing Stock *
+              </label>
+              <div class="flex items-center gap-1.5">
+                <button type="button" id="btnSuggestClosing" class="text-[10px] text-indigo-600 hover:text-indigo-800 underline font-medium" title="Optional: fill with (Opening + Arrival - Issued)">
+                  Calc Helper
+                </button>
+                <span id="stockStatusBadge" class="text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-100 text-slate-600">Manual</span>
+              </div>
+            </div>
+            <div class="relative">
+              <input type="number" step="any" id="closingStock" required placeholder="0.00"
+                class="w-full px-3 py-2 text-sm font-bold border border-slate-300 rounded-lg text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <p id="calculationHelper" class="text-[11px] text-slate-500 mt-1">Enter physical count or day-end closing</p>
+          </div>
+        </div>
+
+        <!-- Remarks & Submission Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end pt-2">
+          <div class="lg:col-span-3">
+            <label for="entryRemarks" class="block text-xs font-semibold text-slate-600 mb-1">Remarks / Reference / Notes</label>
+            <input type="text" id="entryRemarks" placeholder="e.g., PO #4409, Dispatched to Production line 2, physical audit OK"
+              class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+          </div>
+          <div class="flex gap-2">
+            <button type="submit" id="btnSubmitStock"
+              class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm rounded-lg shadow-sm hover:shadow transition-all">
+              <i data-lucide="save" class="w-4 h-4"></i>
+              <span id="submitBtnText">Save Daily Entry</span>
+            </button>
+            <button type="button" id="btnCancelEdit" class="hidden px-3 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-sm font-medium transition">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- Table & Filter Section -->
+    <section class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      <!-- Controls Bar -->
+      <div class="p-4 sm:p-5 border-b border-slate-200 flex flex-col md:flex-row gap-3 md:items-center md:justify-between no-print">
+        <div class="flex flex-1 flex-col sm:flex-row gap-2.5">
+          <!-- Search box -->
+          <div class="relative flex-1">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="text" id="filterSearch" placeholder="Search by item, category or remarks..."
+              class="w-full pl-9 pr-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500">
+          </div>
+          <!-- Filter by Item -->
+          <div class="w-full sm:w-48">
+            <select id="filterItem" class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+              <option value="ALL">All Items</option>
+            </select>
+          </div>
+          <!-- Filter by Date -->
+          <div class="w-full sm:w-44 flex items-center gap-1">
+            <input type="date" id="filterDate" class="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+            <button id="btnClearDateFilter" title="Show all dates" class="p-2 text-slate-400 hover:text-slate-700 rounded-lg border border-slate-200">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          <span id="recordCountLabel">Showing 0 entries</span>
+        </div>
+      </div>
+
+      <!-- Stock Log Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <th class="py-3 px-4">Date</th>
+              <th class="py-3 px-4">Item & Category</th>
+              <th class="py-3 px-4 text-right">Opening Stock</th>
+              <th class="py-3 px-4 text-right text-emerald-700 font-bold">Arrival (+)</th>
+              <th class="py-3 px-4 text-right text-amber-700 font-bold">Issued (-)</th>
+              <th class="py-3 px-4 text-right text-indigo-700 font-bold">Closing Stock</th>
+              <th class="py-3 px-4">Status</th>
+              <th class="py-3 px-4">Remarks</th>
+              <th class="py-3 px-4 text-center no-print">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="stockTableBody" class="divide-y divide-slate-100">
+            <!-- Dynamic rows injected here -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State -->
+      <div id="tableEmptyState" class="hidden p-10 text-center">
+        <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
+          <i data-lucide="inbox" class="w-6 h-6"></i>
+        </div>
+        <h4 class="text-sm font-semibold text-slate-700">No stock records found</h4>
+        <p class="text-xs text-slate-500 mt-1">Try adjusting your search criteria or add a new daily transaction above.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Catalog & Item Management Modal -->
+  <div id="catalogModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs hidden no-print">
+    <div class="bg-white rounded-2xl max-w-2xl w-full mx-4 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 bg-brand-100 text-brand-700 rounded-lg">
+            <i data-lucide="boxes" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-800">Master Item Catalog</h3>
+            <p class="text-xs text-slate-500">Configure tracked inventory items, units & safety thresholds</p>
+          </div>
+        </div>
+        <button id="btnCloseCatalogModal" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-6">
+        <!-- New Item Creation Form inside Modal -->
+        <form id="newItemForm" class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700">Add New Inventory Item</h4>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Item Name *</label>
+              <input type="text" id="modalItemName" required placeholder="e.g. Arabica Coffee Beans"
+                class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Category</label>
+              <input type="text" id="modalItemCat" placeholder="e.g. Raw Material, Spares"
+                class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Unit of Measure *</label>
+              <select id="modalItemUnit" required
+                class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+                <option value="Kg">Kilograms (Kg)</option>
+                <option value="Grams">Grams (g)</option>
+                <option value="Pcs">Pieces (Pcs)</option>
+                <option value="Boxes">Boxes</option>
+                <option value="Liters">Liters (L)</option>
+                <option value="Meters">Meters (m)</option>
+                <option value="Bags">Bags</option>
+                <option value="Drums">Drums</option>
+                <option value="Rolls">Rolls</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end pt-1">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Minimum Alert Threshold</label>
+              <input type="number" step="any" min="0" id="modalItemMinStock" value="10"
+                class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <span class="text-[10px] text-slate-400">Triggers low-stock warnings</span>
+            </div>
+            <div>
+              <button type="submit" class="w-full px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs sm:text-sm font-semibold transition">
+                + Save Item to Catalog
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Current items list in catalog -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Registered Items (<span id="catalogItemsCount">0</span>)</h4>
+          <div class="border border-slate-200 rounded-xl overflow-hidden">
+            <div class="max-h-60 overflow-y-auto">
+              <table class="w-full text-left text-xs divide-y divide-slate-100">
+                <thead class="bg-slate-50 sticky top-0 font-semibold text-slate-600">
+                  <tr>
+                    <th class="p-2.5">Name</th>
+                    <th class="p-2.5">Category</th>
+                    <th class="p-2.5">Unit</th>
+                    <th class="p-2.5 text-right">Min Stock</th>
+                    <th class="p-2.5 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="catalogListTbody" class="divide-y divide-slate-100">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+        <button id="btnCloseCatalogModalFooter" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs sm:text-sm font-medium rounded-lg transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Options Modal (Ensures 100% Full Catalog Items Coverage) -->
+  <div id="exportModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs hidden no-print">
+    <div class="bg-white rounded-2xl max-w-lg w-full mx-4 shadow-2xl overflow-hidden flex flex-col">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 bg-emerald-100 text-emerald-700 rounded-lg">
+            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Export Stock Register</h3>
+            <p class="text-xs text-slate-500">Download formatted CSV reports</p>
+          </div>
+        </div>
+        <button id="btnCloseExportModal" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Target Inventory Date</label>
+          <input type="date" id="exportTargetDate" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white">
+          <p class="text-[11px] text-slate-500 mt-1">Opening, Arrival, Issued & Closing balances will be compiled for this date.</p>
+        </div>
+
+        <div class="space-y-3 pt-2">
+          <!-- Primary: Full Items Daily Sheet -->
+          <div class="p-4 rounded-xl border-2 border-brand-500 bg-brand-50/50 hover:bg-brand-50 transition cursor-pointer" id="btnDoExportFullItems">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="p-2 bg-brand-600 text-white rounded-lg">
+                  <i data-lucide="layers" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-slate-900">Full Items Daily Sheet (Recommended)</h4>
+                  <p class="text-xs text-slate-600 mt-0.5">Exports <strong id="exportCatalogTotalBadge" class="text-brand-700">all items</strong> in your catalog. Items without entries carry forward previous balances.</p>
+                </div>
+              </div>
+              <span class="px-2 py-0.5 text-[10px] font-bold bg-brand-600 text-white rounded-full uppercase">100% Items</span>
+            </div>
+            <div class="mt-3 flex justify-end">
+              <button class="inline-flex items-center gap-1.5 text-xs font-bold text-brand-700 hover:text-brand-900">
+                <span>Download Full Sheet</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Secondary: Filtered view export -->
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition cursor-pointer" id="btnDoExportFiltered">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="p-2 bg-slate-100 text-slate-600 rounded-lg">
+                  <i data-lucide="filter" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h4 class="text-xs font-bold text-slate-800">Export Current Filtered View</h4>
+                  <p class="text-[11px] text-slate-500" id="exportFilteredCountBadge">Export matching entries from active filters</p>
+                </div>
+              </div>
+              <i data-lucide="download" class="w-4 h-4 text-slate-400"></i>
+            </div>
+          </div>
+
+          <!-- Tertiary: Complete Transaction History -->
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition cursor-pointer" id="btnDoExportAllLogs">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="p-2 bg-slate-100 text-slate-600 rounded-lg">
+                  <i data-lucide="database" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h4 class="text-xs font-bold text-slate-800">Export Complete Transaction History</h4>
+                  <p class="text-[11px] text-slate-500" id="exportAllLogsBadge">All historical logs ever recorded</p>
+                </div>
+              </div>
+              <i data-lucide="download" class="w-4 h-4 text-slate-400"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+        <button id="btnCloseExportModalFooter" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs sm:text-sm font-medium rounded-lg transition">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none no-print"></div>
+
+  <!-- Firebase Modular SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { 
+      getFirestore, 
+      collection, 
+      doc, 
+      setDoc, 
+      deleteDoc, 
+      onSnapshot 
+    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+    // ==========================================
+    // PASTE YOUR FIREBASE CONFIG HERE:
+    // ==========================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyDl6WRH9ZPEj50QbNPjv-52S1DlO2ozoJ0",
+      authDomain: "stockflow-9b921.firebaseapp.com",
+      projectId: "stockflow-9b921",
+      storageBucket: "stockflow-9b921.firebasestorage.app",
+      messagingSenderId: "969277990914",
+      appId: "1:969277990914:web:8b5d6809bdfc3f86e79f1b"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const catalogCol = collection(db, "stockflow_catalog");
+    const entriesCol = collection(db, "stockflow_entries");
+
+    // Default Catalog seeded on very first run
+    const DEFAULT_CATALOG = [
+      { id: 'item_1', name: 'Arabica Coffee Beans', category: 'Raw Materials', unit: 'Kg', minStock: 25 },
+      { id: 'item_2', name: 'Paper Takeaway Cups 12oz', category: 'Packaging', unit: 'Boxes', minStock: 15 },
+      { id: 'item_3', name: 'Oat Milk Cartons', category: 'Dairy/Beverage', unit: 'Liters', minStock: 30 },
+      { id: 'item_4', name: 'Organic Raw Cane Sugar', category: 'Ingredients', unit: 'Kg', minStock: 20 },
+      { id: 'item_5', name: 'Biodegradable Straws', category: 'Packaging', unit: 'Pcs', minStock: 200 }
+    ];
+
+    const getTodayISO = () => new Date().toISOString().split('T')[0];
+
+    // Live state
+    let catalog = [];
+    let entries = [];
+
+    // Real-time listener for Catalog
+    onSnapshot(catalogCol, (snapshot) => {
+      if (snapshot.empty) {
+        DEFAULT_CATALOG.forEach(item => {
+          setDoc(doc(db, "stockflow_catalog", item.id), item);
+        });
+        return;
+      }
+      catalog = [];
+      snapshot.forEach(docSnap => catalog.push(docSnap.data()));
+      populateItemDropdowns();
+      renderCatalogModalList();
+      renderStockTable();
+    });
+
+    // Real-time listener for Stock Log Entries
+    onSnapshot(entriesCol, (snapshot) => {
+      entries = [];
+      snapshot.forEach(docSnap => entries.push(docSnap.data()));
+      renderStockTable();
+    });
+
+    function updateClosingStockStatus() {
+      const closingValStr = document.getElementById('closingStock').value;
+      const closingInput = document.getElementById('closingStock');
+      const badge = document.getElementById('stockStatusBadge');
+      const helper = document.getElementById('calculationHelper');
+
+      if (closingValStr === '') {
+        badge.className = 'text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-100 text-slate-600';
+        badge.textContent = 'Manual';
+        closingInput.classList.remove('text-rose-600', 'text-amber-600');
+        closingInput.classList.add('text-slate-900');
+        helper.textContent = 'Enter physical count or day-end closing';
+        return;
+      }
+
+      const closing = parseFloat(closingValStr);
+      const selectedId = document.getElementById('itemSelect').value;
+      const item = catalog.find(i => i.id === selectedId);
+
+      if (closing < 0) {
+        badge.className = 'text-[10px] px-1.5 py-0.5 rounded font-bold bg-rose-100 text-rose-700';
+        badge.textContent = 'Deficit / Negative!';
+        closingInput.classList.remove('text-slate-900', 'text-amber-600');
+        closingInput.classList.add('text-rose-600');
+        helper.textContent = 'Physical closing entered is negative';
+      } else if (item && closing <= (item.minStock || 0)) {
+        badge.className = 'text-[10px] px-1.5 py-0.5 rounded font-bold bg-amber-100 text-amber-800';
+        badge.textContent = 'Low Stock Alert';
+        closingInput.classList.remove('text-slate-900', 'text-rose-600');
+        closingInput.classList.add('text-amber-600');
+        helper.textContent = `At or below minimum threshold (${item.minStock} ${item.unit})`;
+      } else {
+        badge.className = 'text-[10px] px-1.5 py-0.5 rounded font-bold bg-emerald-100 text-emerald-800';
+        badge.textContent = 'Healthy Level';
+        closingInput.classList.remove('text-rose-600', 'text-amber-600');
+        closingInput.classList.add('text-slate-900');
+        helper.textContent = 'Physical closing is within normal range';
+      }
+    }
+
+    function suggestClosingStock() {
+      const openVal = parseFloat(document.getElementById('openingStock').value) || 0;
+      const arrVal = parseFloat(document.getElementById('arrivalStock').value) || 0;
+      const issVal = parseFloat(document.getElementById('issuedStock').value) || 0;
+      const calculated = Number((openVal + arrVal - issVal).toFixed(2));
+
+      document.getElementById('closingStock').value = isNaN(calculated) ? 0 : calculated;
+      updateClosingStockStatus();
+      showToast('Calculated suggestion placed into Closing Stock field', 'info');
+    }
+
+    function autoFetchPreviousClosingStock() {
+      const selectedItemId = document.getElementById('itemSelect').value;
+      const currentDate = document.getElementById('entryDate').value;
+      const currentEntryId = document.getElementById('editEntryId').value;
+
+      if (!selectedItemId) {
+        showToast('Please select an item first', 'info');
+        return;
+      }
+
+      const priorEntries = entries
+        .filter(e => e.itemId === selectedItemId && e.id !== currentEntryId && e.date <= currentDate)
+        .sort((a, b) => {
+          if (a.date === b.date) {
+            return (b.id || '').localeCompare(a.id || '');
+          }
+          return b.date.localeCompare(a.date);
+        });
+
+      if (priorEntries.length > 0) {
+        const lastClosing = priorEntries[0].closingStock;
+        document.getElementById('openingStock').value = lastClosing;
+        showToast(`Auto-filled opening stock: ${lastClosing} from record on ${priorEntries[0].date}`, 'success');
+      } else {
+        showToast('No prior historical record found for this item. Please enter opening balance.', 'info');
+      }
+    }
+
+    function populateItemDropdowns() {
+      const itemSelect = document.getElementById('itemSelect');
+      const filterItem = document.getElementById('filterItem');
+
+      const currentSelected = itemSelect.value;
+      const currentFilter = filterItem.value;
+
+      itemSelect.innerHTML = '<option value="" disabled selected>-- Choose an Item --</option>';
+      catalog.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = `${item.name} (${item.category || 'General'})`;
+        itemSelect.appendChild(opt);
+      });
+
+      if (currentSelected && catalog.some(i => i.id === currentSelected)) {
+        itemSelect.value = currentSelected;
+      }
+
+      filterItem.innerHTML = '<option value="ALL">All Items</option>';
+      catalog.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = item.name;
+        filterItem.appendChild(opt);
+      });
+
+      if (currentFilter) {
+        filterItem.value = currentFilter;
+      }
+    }
+
+    function onItemSelected() {
+      const selectedId = document.getElementById('itemSelect').value;
+      const item = catalog.find(i => i.id === selectedId);
+
+      const catInput = document.getElementById('displayCategory');
+      const unitInput = document.getElementById('displayUnit');
+      const unitBadge = document.getElementById('itemUnitBadge');
+      const minBadge = document.getElementById('itemMinStockBadge');
+
+      if (item) {
+        catInput.value = item.category || 'Standard';
+        unitInput.value = item.unit || 'Units';
+        unitBadge.innerHTML = `Unit: <span class="font-medium text-slate-800">${item.unit}</span>`;
+        minBadge.innerHTML = `Min Alert: <span class="font-medium text-slate-800">${item.minStock} ${item.unit}</span>`;
+
+        if (!document.getElementById('openingStock').value && !document.getElementById('editEntryId').value) {
+          autoFetchPreviousClosingStock();
+        }
+        updateClosingStockStatus();
+      } else {
+        catInput.value = '';
+        unitInput.value = '';
+        unitBadge.innerHTML = 'Unit: <span class="font-medium text-slate-700">-</span>';
+        minBadge.innerHTML = 'Min Alert: <span class="font-medium text-slate-700">-</span>';
+      }
+    }
+
+    function updateKPIs() {
+      document.getElementById('statTotalItems').textContent = catalog.length;
+
+      const targetDate = document.getElementById('filterDate').value || getTodayISO();
+      const dateEntries = entries.filter(e => e.date === targetDate);
+
+      const totalRec = dateEntries.reduce((sum, e) => sum + (parseFloat(e.arrival) || 0), 0);
+      const totalIss = dateEntries.reduce((sum, e) => sum + (parseFloat(e.issued) || 0), 0);
+
+      document.getElementById('statTotalReceived').textContent = totalRec.toLocaleString();
+      document.getElementById('statTotalIssued').textContent = totalIss.toLocaleString();
+      document.getElementById('statReceivedSub').textContent = `On ${targetDate}`;
+      document.getElementById('statIssuedSub').textContent = `On ${targetDate}`;
+
+      let lowCount = 0;
+      catalog.forEach(item => {
+        const itemEntries = entries
+          .filter(e => e.itemId === item.id)
+          .sort((a, b) => b.date.localeCompare(a.date));
+
+        if (itemEntries.length > 0) {
+          const latestClosing = itemEntries[0].closingStock;
+          if (latestClosing <= item.minStock) {
+            lowCount++;
+          }
+        }
+      });
+      document.getElementById('statLowStockCount').textContent = lowCount;
+    }
+
+    function renderStockTable() {
+      const tbody = document.getElementById('stockTableBody');
+      const emptyState = document.getElementById('tableEmptyState');
+
+      const searchQuery = (document.getElementById('filterSearch').value || '').toLowerCase().trim();
+      const filterItemVal = document.getElementById('filterItem').value;
+      const filterDateVal = document.getElementById('filterDate').value;
+
+      const filtered = entries.filter(entry => {
+        const item = catalog.find(i => i.id === entry.itemId) || { name: 'Unknown', category: '-', unit: '-' };
+
+        if (filterItemVal !== 'ALL' && entry.itemId !== filterItemVal) return false;
+        if (filterDateVal && entry.date !== filterDateVal) return false;
+
+        if (searchQuery) {
+          const matchItem = item.name.toLowerCase().includes(searchQuery);
+          const matchCat = (item.category || '').toLowerCase().includes(searchQuery);
+          const matchRemarks = (entry.remarks || '').toLowerCase().includes(searchQuery);
+          if (!matchItem && !matchCat && !matchRemarks) return false;
+        }
+
+        return true;
+      });
+
+      filtered.sort((a, b) => {
+        if (a.date === b.date) {
+          return (b.id || '').localeCompare(a.id || '');
+        }
+        return b.date.localeCompare(a.date);
+      });
+
+      tbody.innerHTML = '';
+      document.getElementById('recordCountLabel').textContent = `Showing ${filtered.length} of ${entries.length} records`;
+
+      if (filtered.length === 0) {
+        emptyState.classList.remove('hidden');
+      } else {
+        emptyState.classList.add('hidden');
+
+        filtered.forEach(entry => {
+          const item = catalog.find(i => i.id === entry.itemId) || { name: 'Deleted Item', category: 'N/A', unit: 'units', minStock: 0 };
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition-colors border-b border-slate-100';
+
+          let statusHtml = '';
+          if (entry.closingStock < 0) {
+            statusHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">
+              <i data-lucide="alert-circle" class="w-3 h-3"></i> Deficit
+            </span>`;
+          } else if (entry.closingStock <= item.minStock) {
+            statusHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+              <i data-lucide="alert-triangle" class="w-3 h-3"></i> Low Stock
+            </span>`;
+          } else {
+            statusHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+              <i data-lucide="check" class="w-3 h-3"></i> In Stock
+            </span>`;
+          }
+
+          tr.innerHTML = `
+            <td class="py-3 px-4 font-medium text-slate-900 whitespace-nowrap">${entry.date}</td>
+            <td class="py-3 px-4">
+              <div class="font-semibold text-slate-800">${escapeHtml(item.name)}</div>
+              <div class="text-[11px] text-slate-400">${escapeHtml(item.category || 'General')} • ${item.unit}</div>
+            </td>
+            <td class="py-3 px-4 text-right font-medium text-slate-700">${formatNum(entry.openingStock)} <span class="text-xs text-slate-400">${item.unit}</span></td>
+            <td class="py-3 px-4 text-right font-semibold text-emerald-600">+${formatNum(entry.arrival)}</td>
+            <td class="py-3 px-4 text-right font-semibold text-amber-600">-${formatNum(entry.issued)}</td>
+            <td class="py-3 px-4 text-right font-bold ${entry.closingStock < 0 ? 'text-rose-600' : 'text-indigo-900'}">
+              ${formatNum(entry.closingStock)} <span class="text-xs font-normal text-slate-500">${item.unit}</span>
+            </td>
+            <td class="py-3 px-4 whitespace-nowrap">${statusHtml}</td>
+            <td class="py-3 px-4 text-slate-600 max-w-xs truncate" title="${escapeHtml(entry.remarks || '-')}">${escapeHtml(entry.remarks || '-')}</td>
+            <td class="py-3 px-4 text-center whitespace-nowrap no-print">
+              <div class="flex items-center justify-center gap-1">
+                <button onclick="window.editEntry('${entry.id}')" title="Edit entry"
+                  class="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition">
+                  <i data-lucide="pencil" class="w-4 h-4"></i>
+                </button>
+                <button onclick="window.deleteEntry('${entry.id}')" title="Delete record"
+                  class="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </td>
+          `;
+
+          tbody.appendChild(tr);
+        });
+      }
+
+      lucide.createIcons();
+      updateKPIs();
+    }
+
+    function renderCatalogModalList() {
+      const tbody = document.getElementById('catalogListTbody');
+      document.getElementById('catalogItemsCount').textContent = catalog.length;
+      tbody.innerHTML = '';
+
+      if (catalog.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">No items configured yet. Add your first item above.</td></tr>`;
+        return;
+      }
+
+      catalog.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 border-b border-slate-100';
+        tr.innerHTML = `
+          <td class="p-2.5 font-medium text-slate-800">${escapeHtml(item.name)}</td>
+          <td class="p-2.5 text-slate-500">${escapeHtml(item.category || '-')}</td>
+          <td class="p-2.5"><span class="px-2 py-0.5 bg-slate-100 rounded text-slate-700">${item.unit}</span></td>
+          <td class="p-2.5 text-right font-medium text-slate-700">${item.minStock}</td>
+          <td class="p-2.5 text-center">
+            <button onclick="window.deleteCatalogItem('${item.id}')" class="text-rose-500 hover:text-rose-700 p-1 rounded" title="Remove Item">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      lucide.createIcons();
+    }
+
+    async function handleStockSubmit(e) {
+      e.preventDefault();
+
+      const editId = document.getElementById('editEntryId').value;
+      const date = document.getElementById('entryDate').value;
+      const itemId = document.getElementById('itemSelect').value;
+      const opening = parseFloat(document.getElementById('openingStock').value) || 0;
+      const arrival = parseFloat(document.getElementById('arrivalStock').value) || 0;
+      const issued = parseFloat(document.getElementById('issuedStock').value) || 0;
+      const closingInputVal = document.getElementById('closingStock').value;
+      
+      if (closingInputVal === '') {
+        showToast('Please enter the Closing Stock value', 'error');
+        document.getElementById('closingStock').focus();
+        return;
+      }
+      const closing = parseFloat(closingInputVal);
+      const remarks = document.getElementById('entryRemarks').value.trim();
+
+      if (!date || !itemId) {
+        showToast('Please specify both Date and Item', 'error');
+        return;
+      }
+
+      const recordId = editId || ('log_' + Date.now());
+      const recordData = {
+        id: recordId,
+        date,
+        itemId,
+        openingStock: opening,
+        arrival,
+        issued,
+        closingStock: closing,
+        remarks
+      };
+
+      try {
+        await setDoc(doc(db, "stockflow_entries", recordId), recordData);
+        showToast(editId ? 'Stock record updated across all devices!' : 'Daily entry saved & synced!', 'success');
+        resetStockForm();
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to save to cloud database', 'error');
+      }
+    }
+
+    window.editEntry = function(id) {
+      const entry = entries.find(x => x.id === id);
+      if (!entry) return;
+
+      document.getElementById('editEntryId').value = entry.id;
+      document.getElementById('entryDate').value = entry.date;
+      document.getElementById('itemSelect').value = entry.itemId;
+      onItemSelected();
+
+      document.getElementById('openingStock').value = entry.openingStock;
+      document.getElementById('arrivalStock').value = entry.arrival;
+      document.getElementById('issuedStock').value = entry.issued;
+      document.getElementById('closingStock').value = entry.closingStock;
+      document.getElementById('entryRemarks').value = entry.remarks || '';
+      updateClosingStockStatus();
+
+      document.getElementById('formTitle').textContent = 'Edit Stock Entry';
+      document.getElementById('submitBtnText').textContent = 'Update Entry';
+      document.getElementById('btnCancelEdit').classList.remove('hidden');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    window.deleteEntry = async function(id) {
+      const record = entries.find(e => e.id === id);
+      const item = record ? catalog.find(i => i.id === record.itemId) : null;
+      const label = item ? item.name : 'this transaction';
+
+      if (window._pendingDelete === id) {
+        try {
+          await deleteDoc(doc(db, "stockflow_entries", id));
+          showToast('Entry deleted everywhere', 'info');
+        } catch (err) {
+          showToast('Failed to delete cloud entry', 'error');
+        }
+        window._pendingDelete = null;
+      } else {
+        window._pendingDelete = id;
+        showToast(`Click delete again to confirm deleting ${label} on ${record ? record.date : ''}`, 'error');
+        setTimeout(() => {
+          if (window._pendingDelete === id) window._pendingDelete = null;
+        }, 5000);
+      }
+    };
+
+    function resetStockForm() {
+      document.getElementById('editEntryId').value = '';
+      document.getElementById('stockEntryForm').reset();
+      document.getElementById('entryDate').value = getTodayISO();
+      document.getElementById('openingStock').value = '';
+      document.getElementById('arrivalStock').value = '0';
+      document.getElementById('issuedStock').value = '0';
+      document.getElementById('closingStock').value = '';
+      document.getElementById('displayCategory').value = '';
+      document.getElementById('displayUnit').value = '';
+      document.getElementById('itemUnitBadge').innerHTML = 'Unit: <span class="font-medium text-slate-700">-</span>';
+      document.getElementById('itemMinStockBadge').innerHTML = 'Min Alert: <span class="font-medium text-slate-700">-</span>';
+
+      document.getElementById('formTitle').textContent = 'Record Daily Stock Transaction';
+      document.getElementById('submitBtnText').textContent = 'Save Daily Entry';
+      document.getElementById('btnCancelEdit').classList.add('hidden');
+      document.getElementById('stockStatusBadge').className = 'text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-100 text-slate-600';
+      document.getElementById('stockStatusBadge').textContent = 'Manual';
+    }
+
+    async function handleCreateCatalogItem(e) {
+      e.preventDefault();
+      const name = document.getElementById('modalItemName').value.trim();
+      const category = document.getElementById('modalItemCat').value.trim();
+      const unit = document.getElementById('modalItemUnit').value;
+      const minStock = parseFloat(document.getElementById('modalItemMinStock').value) || 0;
+
+      if (!name) return;
+
+      const newItemId = 'item_' + Date.now();
+      const newItem = {
+        id: newItemId,
+        name,
+        category: category || 'General',
+        unit,
+        minStock
+      };
+
+      try {
+        await setDoc(doc(db, "stockflow_catalog", newItemId), newItem);
+        document.getElementById('itemSelect').value = newItemId;
+        onItemSelected();
+
+        document.getElementById('modalItemName').value = '';
+        document.getElementById('modalItemCat').value = '';
+        showToast(`Added "${name}" to master item catalog!`, 'success');
+      } catch (err) {
+        showToast('Error saving item to database', 'error');
+      }
+    }
+
+    window.deleteCatalogItem = async function(id) {
+      const countUsage = entries.filter(e => e.itemId === id).length;
+      if (countUsage > 0) {
+        showToast(`Cannot delete: Item is referenced in ${countUsage} stock log entries.`, 'error');
+        return;
+      }
+
+      try {
+        await deleteDoc(doc(db, "stockflow_catalog", id));
+        showToast('Catalog item removed', 'info');
+      } catch (err) {
+        showToast('Error deleting item', 'error');
+      }
+    };
+
+    function getItemDailyStockSnapshot(item, targetDate) {
+      const exactEntry = entries.find(e => e.itemId === item.id && e.date === targetDate);
+      if (exactEntry) {
+        return {
+          date: targetDate,
+          itemId: item.id,
+          itemName: item.name,
+          category: item.category || 'General',
+          unit: item.unit,
+          openingStock: parseFloat(exactEntry.openingStock) || 0,
+          arrival: parseFloat(exactEntry.arrival) || 0,
+          issued: parseFloat(exactEntry.issued) || 0,
+          closingStock: parseFloat(exactEntry.closingStock) || 0,
+          minStock: item.minStock || 0,
+          remarks: exactEntry.remarks || 'Regular daily entry',
+          isCarriedForward: false
+        };
+      }
+
+      const priorEntries = entries
+        .filter(e => e.itemId === item.id && e.date < targetDate)
+        .sort((a, b) => b.date.localeCompare(a.date));
+
+      const carriedOpening = priorEntries.length > 0 ? (parseFloat(priorEntries[0].closingStock) || 0) : 0;
+
+      return {
+        date: targetDate,
+        itemId: item.id,
+        itemName: item.name,
+        category: item.category || 'General',
+        unit: item.unit,
+        openingStock: carriedOpening,
+        arrival: 0,
+        issued: 0,
+        closingStock: carriedOpening,
+        minStock: item.minStock || 0,
+        remarks: priorEntries.length > 0 ? 'No movement (Balance carried over)' : 'Initial catalog state (No records)',
+        isCarriedForward: true
+      };
+    }
+
+    function exportFullItemsCSV(targetDate) {
+      if (catalog.length === 0) {
+        showToast('Item catalog is empty. Please add items first.', 'error');
+        return;
+      }
+
+      const date = targetDate || document.getElementById('exportTargetDate').value || getTodayISO();
+      const headers = [
+        'Date', 'Item Name', 'Category', 'Unit of Measure',
+        'Opening Stock', 'Arrival (+)', 'Issued (-)', 'Closing Stock',
+        'Min Alert Threshold', 'Stock Status', 'Remarks'
+      ];
+
+      const rows = catalog.map(item => {
+        const snap = getItemDailyStockSnapshot(item, date);
+        let status = 'Healthy';
+        if (snap.closingStock < 0) {
+          status = 'Deficit / Negative';
+        } else if (snap.closingStock <= snap.minStock) {
+          status = 'Low Stock Alert';
+        }
+
+        return [
+          `"${snap.date}"`,
+          `"${(snap.itemName || '').replace(/"/g, '""')}"`,
+          `"${(snap.category || '').replace(/"/g, '""')}"`,
+          `"${(snap.unit || '').replace(/"/g, '""')}"`,
+          snap.openingStock,
+          snap.arrival,
+          snap.issued,
+          snap.closingStock,
+          snap.minStock,
+          `"${status}"`,
+          `"${(snap.remarks || '').replace(/"/g, '""')}"`
+        ].join(',');
+      });
+
+      downloadCsv([headers.join(','), ...rows].join('\n'), `Full_Daily_Stock_Sheet_${date}.csv`);
+      closeExportModal();
+      showToast(`Exported full stock sheet with all ${catalog.length} items!`, 'success');
+    }
+
+    function exportAllLogsCSV() {
+      if (entries.length === 0) {
+        showToast('No entries to export', 'info');
+        return;
+      }
+
+      const headers = ['Date', 'Item Name', 'Category', 'Unit', 'Opening Stock', 'Arrival (+)', 'Issued (-)', 'Closing Stock', 'Remarks'];
+      const rows = entries.map(entry => {
+        const item = catalog.find(i => i.id === entry.itemId) || { name: 'Unknown', category: '', unit: '' };
+        return [
+          `"${entry.date}"`,
+          `"${(item.name || '').replace(/"/g, '""')}"`,
+          `"${(item.category || '').replace(/"/g, '""')}"`,
+          `"${(item.unit || '').replace(/"/g, '""')}"`,
+          entry.openingStock,
+          entry.arrival,
+          entry.issued,
+          entry.closingStock,
+          `"${(entry.remarks || '').replace(/"/g, '""')}"`
+        ].join(',');
+      });
+
+      downloadCsv([headers.join(','), ...rows].join('\n'), `Complete_Stock_Audit_Log_${getTodayISO()}.csv`);
+      closeExportModal();
+      showToast('All historical stock logs exported!', 'success');
+    }
+
+    function exportFilteredViewCSV() {
+      const searchQuery = (document.getElementById('filterSearch').value || '').toLowerCase().trim();
+      const filterItemVal = document.getElementById('filterItem').value;
+      const filterDateVal = document.getElementById('filterDate').value;
+
+      const filtered = entries.filter(entry => {
+        const item = catalog.find(i => i.id === entry.itemId) || { name: 'Unknown', category: '-', unit: '-' };
+        if (filterItemVal !== 'ALL' && entry.itemId !== filterItemVal) return false;
+        if (filterDateVal && entry.date !== filterDateVal) return false;
+        if (searchQuery) {
+          const matchItem = item.name.toLowerCase().includes(searchQuery);
+          const matchCat = (item.category || '').toLowerCase().includes(searchQuery);
+          const matchRemarks = (entry.remarks || '').toLowerCase().includes(searchQuery);
+          if (!matchItem && !matchCat && !matchRemarks) return false;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        showToast('No filtered records match current criteria to export', 'info');
+        return;
+      }
+
+      const headers = ['Date', 'Item Name', 'Category', 'Unit', 'Opening Stock', 'Arrival (+)', 'Issued (-)', 'Closing Stock', 'Remarks'];
+      const rows = filtered.map(entry => {
+        const item = catalog.find(i => i.id === entry.itemId) || { name: 'Unknown', category: '', unit: '' };
+        return [
+          `"${entry.date}"`,
+          `"${(item.name || '').replace(/"/g, '""')}"`,
+          `"${(item.category || '').replace(/"/g, '""')}"`,
+          `"${(item.unit || '').replace(/"/g, '""')}"`,
+          entry.openingStock,
+          entry.arrival,
+          entry.issued,
+          entry.closingStock,
+          `"${(entry.remarks || '').replace(/"/g, '""')}"`
+        ].join(',');
+      });
+
+      downloadCsv([headers.join(','), ...rows].join('\n'), `Filtered_Stock_Records_${getTodayISO()}.csv`);
+      closeExportModal();
+      showToast(`Exported ${filtered.length} filtered entries!`, 'success');
+    }
+
+    function downloadCsv(content, filename) {
+      const encodedUri = encodeURI('data:text/csv;charset=utf-8,' + content);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function openExportModal() {
+      const modal = document.getElementById('exportModal');
+      const targetDateInput = document.getElementById('exportTargetDate');
+      const activeFilterDate = document.getElementById('filterDate').value;
+
+      targetDateInput.value = activeFilterDate || getTodayISO();
+      document.getElementById('exportCatalogTotalBadge').textContent = `all ${catalog.length} items`;
+      document.getElementById('exportAllLogsBadge').textContent = `${entries.length} historical logs recorded`;
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeExportModal() {
+      document.getElementById('exportModal').classList.add('hidden');
+    }
+
+    function printReport() {
+      const activeFilterDate = document.getElementById('filterDate').value || getTodayISO();
+      document.getElementById('printReportSubtitle').textContent = `Daily Stock Sheet for Date: ${activeFilterDate} (${catalog.length} Catalog Items)`;
+      document.getElementById('printGeneratedTime').textContent = `Printed: ${new Date().toLocaleString()}`;
+      window.print();
+    }
+
+    function formatNum(val) {
+      if (val === undefined || val === null || isNaN(val)) return '0';
+      return Number(val).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+
+    function escapeHtml(string) {
+      if (!string) return '';
+      return String(string)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      
+      let colors = 'bg-slate-900 text-white';
+      let icon = 'info';
+
+      if (type === 'success') {
+        colors = 'bg-emerald-600 text-white';
+        icon = 'check-circle-2';
+      } else if (type === 'error') {
+        colors = 'bg-rose-600 text-white';
+        icon = 'alert-triangle';
+      }
+
+      toast.className = `${colors} pointer-events-auto px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2.5 text-xs sm:text-sm font-medium transition-all transform duration-300 translate-y-3 opacity-0`;
+      toast.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4"></i> <span>${escapeHtml(msg)}</span>`;
+
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-3', 'opacity-0');
+      }, 20);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-3');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // Initialize Event Listeners
+    document.getElementById('entryDate').value = getTodayISO();
+
+    document.getElementById('closingStock').addEventListener('input', updateClosingStockStatus);
+    document.getElementById('btnSuggestClosing').addEventListener('click', suggestClosingStock);
+
+    document.getElementById('itemSelect').addEventListener('change', onItemSelected);
+    document.getElementById('entryDate').addEventListener('change', () => {
+      if (document.getElementById('itemSelect').value && !document.getElementById('editEntryId').value) {
+        autoFetchPreviousClosingStock();
+      }
+    });
+    document.getElementById('btnAutoFetchOpening').addEventListener('click', autoFetchPreviousPreviousClosingStock);
+
+    document.getElementById('stockEntryForm').addEventListener('submit', handleStockSubmit);
+    document.getElementById('btnResetForm').addEventListener('click', resetStockForm);
+    document.getElementById('btnCancelEdit').addEventListener('click', resetStockForm);
+
+    document.getElementById('filterSearch').addEventListener('input', renderStockTable);
+    document.getElementById('filterItem').addEventListener('change', renderStockTable);
+    document.getElementById('filterDate').addEventListener('change', renderStockTable);
+    document.getElementById('btnClearDateFilter').addEventListener('click', () => {
+      document.getElementById('filterDate').value = '';
+      renderStockTable();
+    });
+
+    const catalogModal = document.getElementById('catalogModal');
+    const openCatalog = () => {
+      renderCatalogModalList();
+      catalogModal.classList.remove('hidden');
+    };
+    const closeCatalog = () => catalogModal.classList.add('hidden');
+
+    document.getElementById('btnOpenItemModal').addEventListener('click', openCatalog);
+    document.getElementById('btnQuickAddItem').addEventListener('click', openCatalog);
+    document.getElementById('btnCloseCatalogModal').addEventListener('click', closeCatalog);
+    document.getElementById('btnCloseCatalogModalFooter').addEventListener('click', closeCatalog);
+    catalogModal.addEventListener('click', (e) => {
+      if (e.target === catalogModal) closeCatalog();
+    });
+
+    document.getElementById('newItemForm').addEventListener('submit', handleCreateCatalogItem);
+
+    document.getElementById('btnOpenExportModal').addEventListener('click', openExportModal);
+    document.getElementById('btnCloseExportModal').addEventListener('click', closeExportModal);
+    document.getElementById('btnCloseExportModalFooter').addEventListener('click', closeExportModal);
+    document.getElementById('exportModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('exportModal')) closeExportModal();
+    });
+
+    document.getElementById('btnDoExportFullItems').addEventListener('click', () => {
+      const selectedDate = document.getElementById('exportTargetDate').value;
+      exportFullItemsCSV(selectedDate);
+    });
+    document.getElementById('btnDoExportFiltered').addEventListener('click', exportFilteredViewCSV);
+    document.getElementById('btnDoExportAllLogs').addEventListener('click', exportAllLogsCSV);
+
+    document.getElementById('btnPrintReport').addEventListener('click', printReport);
+
+    lucide.createIcons();
+  </script>
+</body>
+</html>
